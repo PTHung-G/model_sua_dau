@@ -1,0 +1,137 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage{textcomp,microtype,graphicx,booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+\usepackage[accepted]{icml2026}
+\icmltitlerunning{ViDiCRF: Khôi phục dấu tiếng Việt}
+\usepackage{etoolbox}
+\patchcmd{\abstract}{Abstract}{Tóm tắt}{}{}
+\makeatletter
+\def\fnum@table{Bảng \thetable}
+\makeatother
+\renewcommand{\abstractname}{Tóm tắt}
+\renewcommand{\refname}{Tài liệu tham khảo}
+\begin{document}
+\raggedbottom
+\setlength{\abovedisplayskip}{6pt plus 1pt minus 1pt}
+\setlength{\belowdisplayskip}{6pt plus 1pt minus 1pt}
+\setlength{\abovedisplayshortskip}{3pt plus 1pt minus 1pt}
+\setlength{\belowdisplayshortskip}{4pt plus 1pt minus 1pt}
+\setlength{\jot}{2pt}
+\twocolumn[
+\icmltitle{ViDiCRF: CRF nơ-ron ràng buộc tập ứng viên\\cho bài toán khôi phục dấu tiếng Việt}
+{\centering\textbf{COMP3020 --- Deliverable 3: Đề xuất cuối cùng}\\\textbf{Lĩnh vực:} Xử lý ngôn ngữ tự nhiên\par}
+\begin{icmlauthorlist}
+\icmlauthor{\begin{tabular}{@{}c@{}}\textbf{Pham Tuan Hung}\\[1pt]\small 24hung.pt@vinuni.edu.vn\end{tabular}}{vinuni}
+\icmlauthor{\begin{tabular}{@{}c@{}}\textbf{Do Quang Thai An}\\[1pt]\small 24an.dqt@vinuni.edu.vn\end{tabular}}{vinuni}
+\icmlauthor{\begin{tabular}{@{}c@{}}\textbf{Nguyen Ha Bao Vy}\\[1pt]\small 24vy.nhb@vinuni.edu.vn\end{tabular}}{vinuni}
+\end{icmlauthorlist}
+\icmlaffiliation{vinuni}{VinUniversity, Hà Nội, Việt Nam}
+\icmlcorrespondingauthor{Pham Tuan Hung}{24hung.pt@vinuni.edu.vn}
+\icmlkeywords{Khôi phục dấu tiếng Việt, tập ứng viên, CRF nơ-ron, suy luận CPU}
+\vskip 0.1in
+]
+\printAffiliationsAndNotice{}
+\hypersetup{pdftitle={ViDiCRF: Khôi phục dấu tiếng Việt},pdfauthor={Pham Tuan Hung; Do Quang Thai An; Nguyen Ha Bao Vy},pdfsubject={COMP3020 Deliverable 3 - Bản tiếng Việt}}
+\begin{abstract}
+Khôi phục dấu tiếng Việt đòi hỏi giải quyết nhập nhằng từ vựng đồng thời giữ nguyên cấu trúc văn bản đầu vào. Chúng tôi nghiên cứu ViDiCRF, một trường ngẫu nhiên có điều kiện (CRF) nơ-ron ràng buộc tập ứng viên, kết hợp biểu diễn ký tự, ngữ cảnh hai chiều, thông tin dấu câu và thế chuyển tiếp hạng thấp phụ thuộc ngữ cảnh. Đánh giá ngẫu nhiên với seed cố định trên 500 đoạn kiểm tra đạt 96,73\% độ chính xác token chữ--số và 66,40\% đoạn đúng hoàn toàn. Nghiên cứu sẽ kiểm chứng sự đánh đổi chất lượng--chi phí bằng đối chứng công bằng, phân tích lỗi và đo triển khai CPU, đồng thời công bố giới hạn về tính độc lập của đánh giá.
+\end{abstract}
+
+\section{Giới thiệu}
+Dấu tiếng Việt phân biệt nguyên âm và thanh điệu. Khi bỏ dấu, một dạng như ``ban'' có thể tương ứng với nhiều cách viết và nghĩa khác nhau. Khôi phục đúng vì thế cần tri thức từ vựng và ngữ cảnh, không chỉ thay thế ký tự theo quy tắc. Bài toán hữu ích cho truy vấn không dấu, tin nhắn và văn bản cũ, kể cả khi cần xử lý cục bộ trên CPU.
+
+Các hướng trước đối mặt đánh đổi chất lượng--chi phí: giải mã kết hợp mô hình ngôn ngữ tăng lưu trữ và tìm kiếm; mô hình tiền huấn luyện hiện đại có thể cần hàng trăm triệu tham số \citep{naplava2018,nom2026}. Ràng buộc ký tự không bảo đảm cả token thuộc tập cách viết đã quan sát. Đây là động lực nghiên cứu lựa chọn token có cấu trúc, không mặc định nhanh hay nhẹ hơn; so sánh cần cùng dữ liệu, đơn vị chấm và phần cứng.
+
+Chúng tôi nghiên cứu \emph{lựa chọn ứng viên có cấu trúc}: CRF chọn đồng thời chuỗi cách viết, sử dụng ngữ cảnh và thông tin dấu câu. Câu hỏi chính là liệu không gian đầu ra giới hạn và chấm điểm chuỗi theo ngữ cảnh có mang lại chất lượng hữu ích với chi phí CPU thực tế hay không.
+
+Đã triển khai hệ thống và đánh giá chất lượng sơ bộ. Đóng góp dự kiến tiếp theo là kiểm chứng kiến trúc, đo chi phí CPU và xác nhận độc lập, phân biệt thiếu ứng viên đúng với chọn sai. Tính mới nằm ở tích hợp theo bài toán và kiểm chứng thực nghiệm, không phải phát minh các thành phần riêng lẻ.
+
+\textbf{Giả thuyết nghiên cứu.} Chấm điểm chuỗi theo ngữ cảnh được kỳ vọng tốt hơn chọn theo tần suất hoặc độc lập, nhất là với dạng không dấu nhập nhằng. Giá trị của thế chuyển tiếp ngữ cảnh sẽ được kiểm tra bằng các mô hình huấn luyện đối chứng tương ứng; ưu thế chất lượng--chi phí phải được đo, không mặc định.
+
+\section{Nghiên cứu liên quan}
+\citet{pham2017} so sánh dịch máy cụm từ và nơ-ron; \citet{naplava2018} kết hợp BiRNN ký tự với mô hình ngôn ngữ và tìm kiếm chùm. Thí nghiệm các ngôn ngữ Slav đối chiếu mạng khoảng 30 MB với mô hình ngôn ngữ vài GB: tài nguyên phụ trợ có thể chi phối dung lượng. A-TCN nhanh hơn BiLSTM khoảng 2,7--3,3 lần trên Tesla P100 \citep{alqahtani2019}. TDP đã tối ưu tốc độ nhưng chỉ ràng buộc biến thể ký tự, không phải cách viết nguyên token \citep{dang2020}.
+
+Tài liệu Nôm do nhà phát triển báo \citep{nom2026} nêu ViT5-base 220 triệu tham số/900 MB, bản nhỏ 115 triệu/530 MB, cùng hạn chế lệch thể loại, tên riêng và độ dài. Đây không phải benchmark cùng điều kiện với ViDiCRF. \citet{hu2020} nghiên cứu thế CRF ngữ cảnh và tương tác phân rã; tích hợp theo bài toán của chúng tôi cần kiểm chứng có kiểm soát.
+
+\section{Phương pháp}
+\subsection{Phát biểu bài toán}
+Cho chuỗi token chữ--số không dấu $x=(x_1,\ldots,x_T)$. Dấu câu và khoảng trắng được lưu riêng. Mỗi dạng đầu vào chuẩn hóa có tập ứng viên $C(x_t)$ xây từ cách viết trong train. Dạng chưa được hỗ trợ dùng chính token gốc làm ứng viên COPY duy nhất. Mục tiêu là
+\begin{equation}
+\hat y=\arg\max_{y_t\in C(x_t)} S(y,x),
+\end{equation}
+đồng thời giữ thứ tự token và các span ngoài token. Chuẩn hóa dùng NFC; bỏ dấu bằng loại dấu kết hợp và ánh xạ biến thể chữ có dấu về không dấu. Pipeline xử lý hoa/thường. Đáp án không có trong tập ứng viên không thể được khôi phục, trừ khi chính sách COPY cho phép.
+
+\subsection{Kiến trúc}
+GRU ký tự hai chiều dùng chung biểu diễn dạng đầu vào và ứng viên. Embedding hoa/thường cùng GRU hai chiều trên khoảng dấu câu/khoảng trắng bổ sung đặc trưng đầu vào. BiLSTM hai tầng và attention hai đầu có kết nối dư tạo biểu diễn ngữ cảnh $h_t$. Chấm điểm song tuyến tính tạo điểm cục bộ $s_t(i)$.
+
+CRF kết hợp điểm cục bộ với thế chuyển tiếp giữa cặp ứng viên:
+\begin{align}
+S(y,x)&=\sum_{t=1}^{T}s_t(y_t)+\sum_{t=1}^{T-1}\tau_t(y_t,y_{t+1}),\\
+\tau_t(i,j)&=\sum_{r=1}^{32}u_{t,i,r}\,g_{t,r}\,v_{t+1,j,r},
+\end{align}
+trong đó $u,v$ chiếu biểu diễn ứng viên; $g_t=1+\tanh(W_g[h_t;h_{t+1};q_{t+1}]+b_g)$ sử dụng ngữ cảnh và biểu diễn khoảng dấu câu $q$. Chỉ số ứng viên mang tính cục bộ theo vị trí, không phải nhãn ngôn ngữ chung.
+
+Huấn luyện tối thiểu hóa âm log-hợp lý có điều kiện, chuẩn hóa theo độ dài chuỗi. Viterbi chọn đồng thời chuỗi hợp lệ, không cần sinh ký tự tự hồi quy hay tìm kiếm chùm. Ràng buộc bảo đảm thuộc inventory cho đầu vào được hỗ trợ, không bảo đảm đúng chính tả hay đúng ngữ cảnh trong mọi trường hợp.
+
+Encoder đưa ngữ cảnh vào điểm cục bộ, còn CRF chấm sự tương thích giữa các lựa chọn ứng viên kề nhau và giải mã đồng thời cả chuỗi. Cổng ngữ cảnh điều chỉnh tương tác theo đầu vào và dấu câu. Ablation có kiểm soát sẽ kiểm tra lợi ích tăng thêm ngoài encoder.
+
+\section{Thực nghiệm}
+\subsection{Dữ liệu}
+Corpus lấy từ Wikipedia tiếng Việt ngày 01/11/2023; văn bản có dấu được tự động bỏ dấu để tạo cặp giám sát. Bài viết được chia tất định thành các tập train, validation và test không chung bài, rồi khử trùng đoạn lexical chính xác, ưu tiên tập đánh giá. Tập train đã chuẩn bị, có đáp án nằm trong ứng viên, gồm khoảng 4,39 triệu dòng và 188,31 triệu token; đây không phải lượng dữ liệu checkpoint đã hoàn tất học.
+
+Lấy ngẫu nhiên đều 500 đoạn không hoàn lại từ 99.366 dòng test, seed 20261115; không lọc theo đáp án. Mẫu cố định gồm 462 bài, 18.836 token. Quét toàn bộ train và validation không thấy trùng ID bài hay đoạn lexical chính xác với mẫu (bỏ khác biệt hoa/thường, dấu câu). Chỉ số mẫu và hash cặp đầu vào--đáp án được lưu để tái lập. Các tập train/validation đã lọc theo ứng viên không dùng làm benchmark văn bản thô chính.
+
+\subsection{Thước đo}
+Sau chuẩn hóa NFC, gọi $G$ là tổng token chữ--số trong đáp án và $M$ là số token khớp chính xác, phân biệt hoa/thường theo căn chỉnh đánh giá:
+\begin{equation}
+\mathrm{TokenAcc}=M/G.
+\end{equation}
+Mẫu số tính mọi token đáp án, kể cả dạng không được hỗ trợ. Token ở đây thường là âm tiết chính tả, không phải từ đã phân đoạn ngôn ngữ học. Đoạn đúng hoàn toàn yêu cầu toàn bộ đầu ra khớp đáp án. Token thừa/thiếu và bảo toàn span ngoài token được báo riêng. Độ bao phủ ứng viên giúp phân biệt thiếu đáp án với chọn sai.
+
+
+\subsection{Đối chứng và so sánh dự kiến}
+Đã đánh giá COPY giữ nguyên đầu vào và chọn cách viết phổ biến nhất trong train. Mọi hệ thống dùng cùng đầu vào thô; thống kê đối chứng và inventory chỉ lấy từ train.
+
+\textbf{Ablation cho Milestone.} Huấn luyện độc lập (A) phân loại ứng viên cục bộ, (B) CRF cặp ứng viên với $g_t=1$, (C) CRF cổng ngữ cảnh. A--B kiểm tra chấm chuỗi; B--C kiểm tra cổng ngữ cảnh. Giữ cùng inventory, encoder, tập/thứ tự train, optimizer và số bước; chỉ chọn checkpoint bằng validation. Pilot trên train/validation xác định tập con và ngân sách cập nhật chung khả thi, kiểm tra đường cong học trước khi khóa protocol. Ghép cặp seed giữa các biến thể, chạy lặp trong ngân sách; một seed chỉ là sơ bộ. Kết quả ngân sách nhỏ không trực tiếp giải thích lợi ích checkpoint hiện tại.
+
+\textbf{Diễn giải kết quả ablation.} So sánh chênh lệch chất lượng ghép cặp và độ bất định cùng chi phí CPU. Nếu cổng ngữ cảnh không cải thiện ổn định so với cổng hằng, ưu tiên mô hình đơn giản hơn. Nếu phân loại cục bộ tương đương CRF về kết quả quan sát, chưa có cơ sở dùng giải mã có cấu trúc trong ngân sách đã thử. Không phát hiện cải thiện không chứng minh tương đương; cần báo độ bất định và giới hạn đường cong học.
+
+\textbf{Đánh giá xác nhận độc lập.} Trước lựa chọn mô hình, dành riêng tập ngoài Wikipedia chưa được xem; kiểm tra nguồn bài, trùng chính xác/gần trùng với train, validation và các đánh giá đã xem. Ghi nguồn, cách lấy mẫu và độ phủ; khóa quy mô, hash và cách chấm trước khi xem đầu ra hoặc đáp án. Khóa cấu hình trước đánh giá cuối. Báo khoảng tin cậy 95\% bootstrap ghép cặp theo cụm bài và lỗi theo nhập nhằng, độ bao phủ, độ dài. Nếu chưa xác minh độc lập, chỉ gọi là đánh giá thăm dò.
+
+\subsection{Triển khai và lượng dữ liệu đã học}
+Mô hình PyTorch hạng 32 có khoảng 1,31 triệu tham số học được. Checkpoint chọn bằng validation hoàn tất hai epoch và một phần epoch ba, xử lý khoảng 439 triệu lượt token có lặp. Cấu hình yêu cầu bốn epoch nhưng dừng ở giới hạn thời gian. Train chia đoạn tối đa 64 token; đánh giá xử lý đoạn đầy đủ. Quy mô corpus đã chuẩn bị không phải số mẫu duy nhất đã học.
+
+\textbf{Kế hoạch đo CPU.} Dùng cùng CPU công bố rõ, số luồng cố định, batch một và cùng đầu vào cho mọi hệ thống, có làm nóng và đo lặp. Báo trung vị/p95 độ trễ đầu-cuối, thông lượng, RSS đỉnh và dung lượng gồm buffer inventory; tách tải lạnh khỏi suy luận đã làm nóng. Ablation, đo CPU và xác nhận độc lập thuộc Milestone, chưa phải kết quả đã hoàn thành ở D3.
+
+\subsection{Kết quả sơ bộ}
+Trên cùng 500 đoạn cố định (18.836 token), ViDiCRF hơn đối chứng tần suất 18,86 điểm phần trăm độ chính xác token (Bảng~\ref{tab:preliminary}). Đối chứng lấy ứng viên đầu mỗi hàng inventory xếp theo tần suất chỉ từ train; hòa tần suất được xử lý theo thứ tự xuất hiện trong train. Khôi phục hoa/thường và COPY dạng chưa biết giống ViDiCRF. Các đối chứng cơ bản này chưa tách riêng đóng góp CRF.
+\begin{table}[!ht]
+\caption{So sánh cùng mẫu (seed 20261115), không lọc theo đáp án. Cột cuối là tỷ lệ đoạn đúng hoàn toàn.}
+\label{tab:preliminary}
+\centering
+\begin{tabular}{lrr}
+\toprule
+Hệ thống & Token đúng & Đoạn đúng\\
+\midrule
+COPY & 25,08\% & 0,00\%\\
+Tần suất train & 77,87\% & 14,80\%\\
+ViDiCRF (cố định) & \textbf{96,73\%} & \textbf{66,40\%}\\
+\bottomrule
+\end{tabular}
+\end{table}
+Cả ba không sinh token thừa/thiếu và bảo toàn span ngoài token ở cả 500 đoạn.
+
+\paragraph{Giới hạn.}
+Đánh giá dùng văn bản đúng chính tả được tự động bỏ dấu, chưa đại diện lỗi OCR, Telex chưa hoàn tất, viết tắt hoặc lỗi gõ thực tế. Lấy mẫu ngẫu nhiên do đó chưa chứng minh tính vững với nhiễu thực hay khác miền. Audit loại trừ trùng bài và trùng lexical chính xác, chưa loại trừ gần trùng hoặc mọi tiếp xúc dữ liệu trong quá khứ. Do test đã từng được xem, đây vẫn là đánh giá thăm dò, không phải benchmark xác nhận hoàn toàn mới. Inventory có thể nhiễu, giới hạn khả năng khôi phục và tốn dung lượng. Lợi ích kiến trúc cần ablation tương ứng; kết quả chưa chứng minh vượt các hệ thống nơ-ron trước.
+
+\begin{minipage}{\columnwidth}
+\section*{Đóng góp của các thành viên}
+Đóng góp đã ghi nhận trong dự án: Pham Tuan Hung---phát biểu bài toán, tổng quan, thiết kế ban đầu và tổng hợp báo cáo; Do Quang Thai An---chuẩn bị dữ liệu, phân tích ứng viên và thiết kế đánh giá; Nguyen Ha Bao Vy---trình bày phương pháp, chuẩn bị thuyết trình và kiểm tra tài liệu.
+\end{minipage}
+
+\bibliography{references}
+\bibliographystyle{icml2025}
+\end{document}

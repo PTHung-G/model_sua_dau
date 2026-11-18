@@ -1,0 +1,103 @@
+\documentclass{article}
+
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subfigure}
+\usepackage{booktabs}
+
+\usepackage{hyperref}
+
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
+\usepackage[accepted]{icml2026}
+
+\icmltitlerunning{A Compact and Fast Model for Vietnamese Diacritic Restoration}
+
+\begin{document}
+
+\twocolumn[
+\icmltitle{A Compact, Fast Model for Vietnamese Diacritic Restoration}
+
+{\centering\textbf{Project Category:} Natural Language\par}
+
+\begin{icmlauthorlist}
+\icmlauthor{\begin{tabular}{@{}c@{}}\textbf{Pham Tuan Hung}\\[1pt]\small 24hung.pt@vinuni.edu.vn\end{tabular}}{vinuni}
+\icmlauthor{\begin{tabular}{@{}c@{}}\textbf{Do Quang Thai An}\\[1pt]\small 24an.dqt@vinuni.edu.vn\end{tabular}}{vinuni}
+\icmlauthor{\begin{tabular}{@{}c@{}}\textbf{Nguyen Ha Bao Vy}\\[1pt]\small 24vy.nhb@vinuni.edu.vn\end{tabular}}{vinuni}
+\end{icmlauthorlist}
+
+\icmlaffiliation{vinuni}{VinUniversity, Hanoi, Vietnam}
+
+\icmlcorrespondingauthor{Pham Tuan Hung}{24hung.pt@vinuni.edu.vn}
+
+\icmlkeywords{Vietnamese diacritic restoration, natural language processing, efficiency}
+
+\vskip 0.1in
+]
+
+\printAffiliationsAndNotice{}
+
+\begin{abstract}
+We study Vietnamese diacritic restoration: recovering the tone marks and
+diacritics of text written without them. Existing systems are accurate but large and
+slow, and restoration runs on every sentence. We take the
+opposite end of the trade-off: a small CPU model where a factorized character-level
+network scores only the spellings attested for each form, so an invalid syllable
+cannot be produced. We evaluate on multi-register Vietnamese text from public
+sources, reporting token and sentence accuracy, parameter count, and CPU latency.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+\textbf{Motivation.}
+Much Vietnamese text is written without diacritics: chat messages, comments,
+search queries, speech output, and digitised legacy data. Restoring them is hard
+because one undiacritised string maps to many words; \textit{ban} may be
+\textit{b\d{a}n} (friend), \textit{b\`an} (table), or \textit{b\'an} (to sell). Correct resolution needs lexical knowledge and sentence context. Since
+restoration runs on every sentence, often on a phone or CPU server, the goal is
+not accuracy alone but accuracy at a small fixed cost. This is an
+\emph{application project}: we build a model that is small and fast without giving
+up accuracy.
+
+\textbf{Limitations of existing approaches.}
+Character-by-character models reach accuracy in the high nineties
+\citep{do2013mt,nga2019deep}, but they can emit sequences that are not valid
+Vietnamese syllables, and beam search adds latency for a step run on every
+sentence \citep{dang2020tdp}. Current alternatives are large
+sequence-to-sequence or language models, whose per-sentence cost is orders of
+magnitude above a small local network. Existing work reports accuracy but rarely
+reports it \emph{with} parameter count and CPU latency on the same data.
+
+\textbf{Method.}
+We apply supervised classification over a restricted label space. A
+character-level neural encoder turns each undiacritised syllable into a vector,
+and two classification heads sit on top: one over the six tone classes, the other
+over vowel modifications. This factorises one large decision into two small
+classifications. Unlike earlier systems that predict characters freely, both heads
+score only the spellings attested for the input form, so the label space is
+exactly the set of real Vietnamese syllables. Training minimises cross-entropy
+with AdamW by backpropagation. Since decoding is a single argmax, no beam search
+is required, and the network stays small enough for CPU.
+
+\textbf{Data.}
+Diacritised Vietnamese is abundant, and training pairs are built without human
+labelling by stripping diacritics. We draw on Vietnamese Wikipedia, open news corpora
+(BKAINewsCorpus, vietnamnet-news) and further open sources in other registers,
+since Wikipedia under-represents conversational and literary text. Sources are
+split and deduplicated at article level before sampling, so no sentence crosses
+the train/validation boundary.
+
+\textbf{Intended experiments.}
+We report token and exact-sentence accuracy per register with parameter count
+and CPU latency per sentence, so accuracy is read against cost. Errors are
+stratified by candidate-set size to separate ambiguous from unambiguous syllables,
+and we compare against a frequency baseline picking the commonest spelling of each
+form, showing what is learned beyond vocabulary.
+
+\bibliography{references}
+\bibliographystyle{icml2025}
+
+\end{document}

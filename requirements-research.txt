@@ -1,0 +1,8 @@
+-r requirements.txt
+datasets
+transformers
+scikit-learn
+scipy
+pandas
+tqdm
+# Historical research scripts may require additional packages.

@@ -1,0 +1,135 @@
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+\usepackage[accepted]{icml2026}
+\icmltitlerunning{ViDiCRF: Vietnamese Diacritic Restoration}
+\begin{document}
+% Compact display spacing; do not stretch equation gaps to fill columns.
+\raggedbottom
+\setlength{\abovedisplayskip}{6pt plus 1pt minus 1pt}
+\setlength{\belowdisplayskip}{6pt plus 1pt minus 1pt}
+\setlength{\abovedisplayshortskip}{3pt plus 1pt minus 1pt}
+\setlength{\belowdisplayshortskip}{4pt plus 1pt minus 1pt}
+\setlength{\jot}{2pt}
+\twocolumn[
+\icmltitle{ViDiCRF: Candidate-Constrained Neural CRF\\for Vietnamese Diacritic Restoration}
+{\centering\textbf{COMP3020 --- Deliverable 3: Final Proposal}\\\textbf{Project Category:} Natural Language\par}
+\begin{icmlauthorlist}
+\icmlauthor{\begin{tabular}{@{}c@{}}\textbf{Pham Tuan Hung}\\[1pt]\small 24hung.pt@vinuni.edu.vn\end{tabular}}{vinuni}
+\icmlauthor{\begin{tabular}{@{}c@{}}\textbf{Do Quang Thai An}\\[1pt]\small 24an.dqt@vinuni.edu.vn\end{tabular}}{vinuni}
+\icmlauthor{\begin{tabular}{@{}c@{}}\textbf{Nguyen Ha Bao Vy}\\[1pt]\small 24vy.nhb@vinuni.edu.vn\end{tabular}}{vinuni}
+\end{icmlauthorlist}
+\icmlaffiliation{vinuni}{VinUniversity, Hanoi, Vietnam}
+\icmlcorrespondingauthor{Pham Tuan Hung}{24hung.pt@vinuni.edu.vn}
+\icmlkeywords{Vietnamese diacritic restoration, candidate constraints, neural CRF, CPU inference}
+\vskip 0.1in
+]
+\printAffiliationsAndNotice{}
+\hypersetup{pdftitle={ViDiCRF: Candidate-Constrained Neural CRF for Vietnamese Diacritic Restoration},pdfauthor={Pham Tuan Hung; Do Quang Thai An; Nguyen Ha Bao Vy},pdfsubject={COMP3020 Deliverable 3: Final Proposal}}
+
+\begin{abstract}
+Vietnamese diacritic restoration requires resolving lexical ambiguity while preserving the input text structure. We investigate ViDiCRF, a candidate-constrained neural conditional random field combining character representations, bidirectional context, punctuation-gap information, and context-dependent low-rank transitions. A fixed-seed random evaluation on 500 test paragraphs yields 96.73\% alphanumeric token accuracy and 66.40\% exact-paragraph accuracy. We will assess whether this structured candidate-selection approach provides a useful quality--cost trade-off through fair comparisons, error analysis, and CPU deployment measurements, with evaluation-independence limitations explicitly documented.
+\end{abstract}
+
+\section{Introduction}
+Vietnamese diacritics distinguish vowels and lexical tones. Removing them makes forms such as ``ban'' ambiguous, requiring lexical knowledge and context. Restoration supports unaccented queries, messages, and legacy text, including local CPU processing.
+
+Prior approaches face accuracy--cost trade-offs: language-model-assisted decoding adds storage and search, while modern pretrained restorers can require hundreds of millions of parameters \citep{naplava2018,nom2026}. Character-level constraints also do not guarantee whole-token inventory membership. These limitations motivate structured token selection, not an assumed speed or memory advantage; published scores require matched data, units, and hardware to compare.
+
+We extend independent candidate classification into \emph{structured candidate selection}: a neural CRF jointly selects spellings using context and punctuation gaps. We ask whether restricted outputs and contextual scoring deliver useful quality at practical CPU cost.
+
+We contribute an implemented restoration system and preliminary quality evaluation. Planned contributions are controlled architectural analysis, CPU cost measurement and independent confirmation, separating missing candidates from selection errors. Originality lies in task-specific integration and evaluation, not individual components.
+
+\textbf{Research hypotheses.} Contextual sequence scoring should improve on frequency-based and independent selection for ambiguous forms. Matched training comparisons will test contextual transitions and measure quality--cost trade-offs.
+
+\section{Related Work}
+\citet{pham2017} compare phrase-based and neural translation; \citet{naplava2018} combine character BiRNNs with language-model-assisted beam decoding. Their Slavic experiments contrast a 30 MB neural model with a several-GB language model: auxiliary resources can dominate storage. A-TCN is approximately 2.7--3.3$\times$ faster than BiLSTM on a Tesla P100 \citep{alqahtani2019}. TDP already targets efficiency but constrains character variants rather than whole-token spellings \citep{dang2020}.
+
+N\^om developer documentation \citep{nom2026} reports ViT5-base at 220M parameters/900 MB and a smaller model at 115M/530 MB, with register skew, name ambiguity and length limits. These are not matched ViDiCRF benchmarks. \citet{hu2020} study contextual CRF potentials and decomposed interactions; our task-specific integration requires controlled validation.
+
+\section{Method}
+\subsection{Problem Statement}
+Let $x=(x_1,\ldots,x_T)$ be the unaccented alphanumeric token sequence. Non-word spans, including punctuation and whitespace, are retained separately. Each normalized input form has a candidate set $C(x_t)$ built from training spellings. For an unsupported form, the current policy uses the original token as a singleton COPY candidate. We seek
+\begin{equation}
+\hat y=\arg\max_{y_t\in C(x_t)} S(y,x),
+\end{equation}
+while preserving token order and the non-word spans. Normalization uses NFC, with diacritic stripping removing combining marks and mapping accented letter variants to their unaccented forms. Case is handled by the restoration pipeline. A missing gold spelling cannot be recovered unless the candidate/COPY policy permits it.
+
+\subsection{Approach}
+A shared bidirectional character GRU represents input forms and candidate spellings. Case embeddings and a bidirectional GRU over punctuation/whitespace gaps contribute to input representations. A two-layer bidirectional LSTM followed by residual two-head attention supplies contextual representations $h_t$. Bilinear scoring produces local candidate scores $s_t(i)$.
+
+The CRF combines these scores with candidate-pair transitions:
+\begin{align}
+S(y,x)&=\sum_{t=1}^{T}s_t(y_t)+\sum_{t=1}^{T-1}\tau_t(y_t,y_{t+1}),\\
+\tau_t(i,j)&=\sum_{r=1}^{32}u_{t,i,r}\,g_{t,r}\,v_{t+1,j,r},
+\end{align}
+where $u$ and $v$ project candidate representations, and $g_t=1+\tanh(W_g[h_t;h_{t+1};q_{t+1}]+b_g)$ uses contextual states and encoded gap information $q$. Candidate indices are local to each position, not universal linguistic labels.
+
+Training minimizes sequence-length-normalized negative conditional log-likelihood. Viterbi inference jointly chooses the permitted spelling sequence; no autoregressive character generation or beam search is required. Restriction ensures inventory membership for supported inputs, not universal spelling correctness or correct contextual selection.
+
+The encoder contextualizes local scores, whereas the CRF scores compatibility between adjacent candidate selections and jointly decodes the sequence. Gating adapts interactions to context and punctuation. Matched ablations will test the added value beyond the encoder.
+
+\section{Experiments}
+\subsection{Datasets}
+The current corpus derives from the Vietnamese Wikipedia snapshot dated November 1, 2023. Accented text provides supervision through automatic stripping. Articles are assigned deterministically to disjoint training, validation and test partitions, followed by exact lexical-paragraph deduplication with evaluation priority. The prepared candidate-covered training subset contains approximately 4.39 million rows and 188.31 million tokens. These counts describe prepared data, not completed training exposure.
+
+We sample 500 paragraphs uniformly without replacement from all 99,366 internal test rows using seed 20261115, retaining every selected row without gold-candidate filtering. The locked sample spans 462 articles and 18,836 alphanumeric tokens. A full scan of training and validation found no shared article IDs or exact lexical paragraph matches (case/punctuation-insensitive) with the sample. Indices and input--target hashes are retained for reproducibility. Candidate-filtered subsets are not raw benchmarks.
+
+\subsection{Metrics}
+After NFC normalization, let $G$ be the total gold alphanumeric-token count and $M$ the number of case-sensitive exact token matches under the evaluation alignment. We report
+\begin{equation}
+\mathrm{TokenAcc}=M/G.
+\end{equation}
+The denominator includes all gold tokens, including unsupported forms. Vietnamese tokens here generally correspond to orthographic syllables, not segmented lexical words. Exact-paragraph accuracy requires the complete restored paragraph to match the gold text. Extra/missing tokens and non-word-span preservation are reported separately. Candidate attainability distinguishes coverage from selection failures.
+
+
+\subsection{Baselines and Planned Comparisons}
+Completed baselines are unchanged-input COPY and the most frequent training spelling for each input form. All systems use identical raw inputs; baseline statistics and candidate inventories come only from training data.
+
+\textbf{Milestone ablation.} Independently train (A) local candidate classification, (B) candidate-pair CRF with $g_t=1$, and (C) contextual-gate CRF. A--B tests sequence scoring; B--C tests contextual gating. Fix inventory, encoder, train subset/order, optimizer and update budget; select checkpoints only on validation. A train/validation pilot will determine a feasible fixed subset and shared update budget, checking learning curves before freezing the protocol. Use paired seeds across variants and repeat within available resources; a single-seed result remains preliminary. Reduced-budget results will not directly explain the current checkpoint's gains.
+
+\textbf{Ablation interpretation.} Assess paired quality differences, uncertainty and CPU cost. Without consistent gating gains, prefer constant transitions; if local classification matches CRFs, structured decoding lacks justification under the tested budget. Failure to detect gains does not prove equivalence; report uncertainty and learning-curve limitations.
+
+\textbf{Independent confirmation.} Before model selection, reserve an uninspected, non-Wikipedia evaluation set, screening provenance and exact/near-duplicate overlap against training, validation and inspected evaluations. Document source, sampling and coverage; freeze its size, hashes and scoring protocol before viewing model outputs or labels. Lock model settings before final scoring. Report paired 95\% article-cluster bootstrap intervals, plus errors by ambiguity, coverage and length. If independence cannot be verified, label the evaluation exploratory.
+
+\subsection{Implementation and Training Exposure}
+The rank-32 PyTorch model has approximately 1.31M trainable parameters. Its validation-selected checkpoint completed two epochs and part of a third, processing approximately 439M token presentations including repeats. Four epochs were requested, but training stopped at the configured time limit. Training uses segments of at most 64 tokens; evaluation restores full paragraphs. Prepared corpus size is not unique observed-example count.
+
+\textbf{CPU profiling plan.} Use the same declared CPU, fixed thread count, batch one and workload for all systems, with warm-up and repeated measurements. Report end-to-end median/p95 latency, throughput, peak process RSS, and artifact bytes including inventory buffers; separate cold loading from warmed inference. Ablation, profiling and confirmation are Milestone work, not completed D3 results.
+
+\subsection{Preliminary Results}
+On the locked 500 paragraphs (18,836 tokens), ViDiCRF exceeds train-frequency by 18.86 token-accuracy percentage points (Table~\ref{tab:preliminary}). Frequency selection takes the first train-ranked candidate, with ties broken by training occurrence; case transfer and unknown COPY match ViDiCRF. These controls do not isolate CRF contributions.
+
+\begin{table}[!ht]
+\caption{Same-sample comparison (seed 20261115), without gold-label filtering. Exact denotes full-paragraph accuracy.}
+\label{tab:preliminary}
+\centering
+\begin{tabular}{lrr}
+\toprule
+System & Token accuracy & Exact\\
+\midrule
+COPY & 25.08\% & 0.00\%\\
+Train-frequency & 77.87\% & 14.80\%\\
+ViDiCRF (frozen) & \textbf{96.73\%} & \textbf{66.40\%}\\
+\bottomrule
+\end{tabular}
+\end{table}
+All systems have zero extra/missing tokens and preserve all non-word spans.
+
+\paragraph{Limitations.}
+Evaluation uses correctly spelled text with synthetically removed diacritics, not realistic OCR errors, unfinished Telex, abbreviations or typing errors. Random paragraph sampling therefore does not establish robustness to real-world noise or domain shifts. The audit does not exclude near-duplicates or all historical exposure. Prior test inspection means this remains exploratory rather than a pristine confirmatory benchmark. Inventories may contain noise and limit recoverable spellings; their storage contributes to deployment cost. Architectural benefits remain unverified until matched ablations; these results do not establish superiority over prior neural systems.
+
+\begin{minipage}{\columnwidth}
+\section*{Acknowledgment and Team Contributions}
+Contributions recorded for the project: Pham Tuan Hung---problem formulation, literature review, initial design and report integration; Do Quang Thai An---data preparation, candidate analysis and evaluation design; Nguyen Ha Bao Vy---method exposition, presentation and reference checking.
+\end{minipage}
+
+\bibliography{references}
+\bibliographystyle{icml2025}
+\end{document}

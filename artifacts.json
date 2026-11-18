@@ -1,0 +1,12 @@
+{
+  "files": {
+    "windows_demo_build/DauDemo/model.pt": {
+      "bytes": 271783228,
+      "sha256": "a45c5452fa0794121b2c4cd6e7fae62c99dbeff56afc7f1910f14b9b86664a3b"
+    },
+    "punct_four_epochs_output_v2/punct_four_epochs_latest.pt.best.pt": {
+      "bytes": 334391673,
+      "sha256": "a9364088b5aa867099753f498302ed0cdc554dddf522f2336d60ba50dde8d520"
+    }
+  }
+}

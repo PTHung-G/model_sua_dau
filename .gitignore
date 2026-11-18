@@ -1,0 +1,29 @@
+# Environments, credentials and local configuration
+.venv/
+venv/
+.env
+.env.*
+*.pem
+*.key
+.ssh/
+# Generated Python files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+# Models, tensors and raw datasets (transfer separately)
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.npz
+*.parquet
+*.arrow
+*.jsonl
+*.zip
+*.log
+*.aux
+*.out
+*.toc
+*.blg
+*.bbl
+.DS_Store

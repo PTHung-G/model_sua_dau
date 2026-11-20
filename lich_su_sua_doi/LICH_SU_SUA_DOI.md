@@ -155,7 +155,8 @@ Nguồn số liệu đầy đủ lưu tại [ket_qua_benchmark_v1_vs_v2.json](fi
 | CSR `cand_ids` (13,79 MB → 1,45 MB, tỉ lệ lấp đầy 4,29%) | — | nén `9,48×` |
 
 - **Phân rã độ trễ** (câu mẫu 24 từ, Linux): baseline p50 `11,02 ms` — trong đó `model_forward` chiếm `9,37 ms` (~82%), tokenizer/tổng hợp tensor chỉ ~0,4 ms. **Khác biệt với đo Windows của tôi trước đó (40,3 ms tổng, ~60% ngoài model) là đặc thù nền tảng**; số 24 ms overhead chưa được xác nhận trên môi trường này.
-- Latency trên câu mới mỗi lần (không dính memo toàn-câu) và chi tiết đầy đủ: `lich_su_sua_doi/ket_qua_toi_uu_cpu_v3.json` (đo lại sau khi bổ sung thước đo fresh-input).
+- **Latency câu mới mỗi lần** (thước đo thực dụng nhất cho gõ văn bản): baseline `14,82 ms` vs opt `14,28 ms` (**chỉ nhanh ~3,6%**) — vì trên nền tảng này `model_forward` đã chiếm đa số thời gian. Memo toàn-câu (`p50 0,01 ms`, nhanh ~1000×) chỉ áp dụng cho **input lặp lại y hệt** (vd. chạy lại cùng câu); với gõ từng phím (mỗi phím = câu mới) lợi ích chính nằm ở chỗ khác.
+- Chi tiết đầy đủ: `lich_su_sua_doi/ket_qua_toi_uu_cpu_v3.json`.
 
 ### B. PMI bigram train-only (`vidicrf_v2/pmi.py`)
 - `PMITable`: đếm cặp trên **chỉ partition train**, lọc `min_pair_count=3`, clip `[−4, 8]`, tra cứu `searchsorted` trên key int64 đã sắp; bơm `bigram += λ · PMI(cặp ứng viên kề)` với λ học được (khởi tạo 0.5).

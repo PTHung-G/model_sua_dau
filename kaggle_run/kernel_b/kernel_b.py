@@ -46,22 +46,35 @@ print(f"[env] torch={torch.__version__} cuda={torch.cuda.is_available()}"
 
 # --- import source: prefer attached dataset, fall back to repo layout (local smoke) ---
 if Path("/kaggle/working").exists():
-    SRC = Path("/kaggle/input/vidicrf-v3-src")
+    # Kaggle mounts attached datasets at /kaggle/input/<slug> (legacy) or
+    # /kaggle/input/datasets/<owner>/<slug> (new layout) — scan for both.
+    SRC = None
+    for cand_src in [
+        Path("/kaggle/input/vidicrf-v3-src"),
+        Path("/kaggle/input/datasets/tunhngphm/vidicrf-v3-src"),
+    ]:
+        if (cand_src / "model.py").exists() or (cand_src / "vidicrf_v2.zip").exists():
+            SRC = cand_src
+            break
+    if SRC is None:
+        hits = list(Path("/kaggle/input").glob("**/vidicrf-v3-src/model.py"))
+        SRC = hits[0].parent if hits else None
     DST_PARENT = Path("/kaggle/working/src")
-    if (SRC / "model.py").exists() and not (SRC / "vidicrf_v2" / "model.py").exists():
-        # dataset uploaded with --dir-mode zip: files unpacked flat at dataset root
-        pkg = DST_PARENT / "vidicrf_v2"
-        pkg.mkdir(parents=True, exist_ok=True)
-        for f in SRC.glob("*.py"):
-            shutil.copy(f, pkg / f.name)
-        print("[src] assembled flat dataset into package layout", flush=True)
-    elif (SRC / "vidicrf_v2" / "model.py").exists():
-        shutil.copytree(SRC / "vidicrf_v2", DST_PARENT / "vidicrf_v2", dirs_exist_ok=True)
-        print("[src] copied dataset folder", flush=True)
-    elif (SRC / "vidicrf_v2.zip").exists():
-        DST_PARENT.mkdir(parents=True, exist_ok=True)
-        shutil.unpack_archive(SRC / "vidicrf_v2.zip", DST_PARENT)
-        print("[src] unpacked vidicrf_v2.zip", flush=True)
+    if SRC is not None:
+        if (SRC / "model.py").exists() and not (SRC / "vidicrf_v2" / "model.py").exists():
+            # dataset uploaded with --dir-mode zip: files unpacked flat at dataset root
+            pkg = DST_PARENT / "vidicrf_v2"
+            pkg.mkdir(parents=True, exist_ok=True)
+            for f in SRC.glob("*.py"):
+                shutil.copy(f, pkg / f.name)
+            print("[src] assembled flat dataset into package layout", flush=True)
+        elif (SRC / "vidicrf_v2" / "model.py").exists():
+            shutil.copytree(SRC / "vidicrf_v2", DST_PARENT / "vidicrf_v2", dirs_exist_ok=True)
+            print("[src] copied dataset folder", flush=True)
+        elif (SRC / "vidicrf_v2.zip").exists():
+            DST_PARENT.mkdir(parents=True, exist_ok=True)
+            shutil.unpack_archive(SRC / "vidicrf_v2.zip", DST_PARENT)
+            print("[src] unpacked vidicrf_v2.zip", flush=True)
     if (DST_PARENT / "vidicrf_v2" / "model.py").exists():
         sys.path.insert(0, str(DST_PARENT))
         print("[src] using attached dataset source", flush=True)

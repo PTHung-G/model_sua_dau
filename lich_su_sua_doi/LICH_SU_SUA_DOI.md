@@ -166,4 +166,34 @@ Nguồn số liệu đầy đủ lưu tại [ket_qua_benchmark_v1_vs_v2.json](fi
 ### C. Kernel Kaggle quy mô lớn (`kaggle_run/`)
 - 2 kernel riêng tư (T4): `vidicrf-v3-scale-200k-base` (không PMI) và `vidicrf-v3-scale-200k-pmi`; protocol **giữ nguyên** Exp B (seed 42, 4 epochs, bs 32, lr 0.0020, dedup ưu tiên eval, RAW test) chỉ tăng train 12.000 → 200.000 đoạn; revision HF khóa cứng `b04c8d1c…`; AMP FP16 chỉ quanh encoder, loss CRF/CE luôn FP32; decode test: Viterbi / FB-MBR / **two-pass anchored** (τ ∈ {0.8, 0.9, 0.95}) / partial-diac 40%.
 - Dataset nguồn `tunhngphm/vidicrf-v3-src` (7 module, zip); kernel tự lắp layout package từ file phẳng.
-- Kết quả sẽ nằm ở `/kaggle/working/results_v3.json` của từng kernel (kiểm tra thủ công trên Kaggle).
+- Kết quả lưu tại `lich_su_sua_doi/kaggle_v3/results_{base,pmi}_200k.json`.
+
+### D. Kết quả chạy 200k trên Kaggle T4 (20/11/2026) — benchmark thăm dò, ngoài D3
+- Test set **trùng khớp từng token** với Exp B 12k (71.173 tokens; salt hash) → số so sánh trực tiếp được. Train ~194.495/200.000 đoạn (5.505 bị skip), 217.938 segments; inventory 25.303 dạng từ; AMP thực tế dùng **BF16** (torch 2.11 báo bf16 khả dụng trên T4 qua emulation; GradScaler tự tắt), CRF/CE luôn FP32; `nan_skips = 0` toàn bộ; ~5.880s/epoch, tổng ~5h51m train + eval.
+
+| Hệ thống (cùng test set 71.173 tokens) | Val Acc | RAW Token | Nhập nhằng | Exact Paragraph | Ortho-Norm |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| `ViDiCRF v2` 12k (Viterbi) | 88,23% | 88,65% | 87,04% | 17,80% | 88,73% |
+| `ViDiCRF v2` 12k (FB-MBR) | — | 88,72% | 87,13% | 17,20% | 88,80% |
+| **base 200k (Viterbi)** | 94,65% | **96,34%** | 96,09% | **40,30%** | 96,44% |
+| **base 200k (FB-MBR)** | — | 96,35% | 96,11% | 40,00% | 96,46% |
+| **PMI 200k (Viterbi)** | **94,87%** | **96,60%** | **96,38%** | **41,60%** | 96,70% |
+| **PMI 200k (FB-MBR)** | — | 96,60% | 96,38% | 41,40% | 96,70% |
+
+- **PMI vs base** (ablation đối chứng): +0,26 token, +0,29 nhập nhằng, +1,30 điểm exact paragraph (+3,2% tương đối); λ học được hội tụ ~1,10 (khởi tạo 0,5, đỉnh 1,21 ở ep1 rồi hạ dần); chi phí thời gian ~0 (5.264s vs 5.267s/epoch). Val gap PMI–base thu hẹp dần: +1,96 → +0,80 → +0,41 → +0,22 — đúng hình thái "sketch đi trước, model nội hóa dần".
+- **Two-pass anchored hoàn toàn phẳng**: 96,34/96,60 tại cả τ ∈ {0.8, 0.9, 0.95} — không đổi một prediction nào so với Viterbi thuần. Kết quả tiêu cực hữu ích: cơ chế anchor-cứng trên cùng lattice gần như chắc chắn trùng với Viterbi khi MBR và Viterbi bất đồng rất ít → tiền đề cho "2-step BP / candidate cross-attention" đầy đủ ở quy mô này yếu.
+- **Lưu ý protocol partial-diac**: eval này decode **tự do không hard-copy** từ có dấu sẵn (khác A/B 12k nơi restorer khóa cứng → 100% bảo toàn). Kết quả free-decode: base bảo toàn 99,66% (78 từ hỏng), PMI 99,76% (55 từ hỏng); 60% không dấu: 96,61% / 96,88%. **Chỉ so sánh PMI vs base với nhau được**, không so trực tiếp cột 89,32%/100% của bảng 12k.
+- Scale-up 12k → 200k (16,7×): +7,69 điểm token (88,65 → 96,34), nhập nhằng +9,05, exact paragraph ×2,26 — lợi ích tuyến tính hơn dự đoán ban đầu (dự đoán trước khi chạy của tôi là ~93,5–95%, thực tế vượt lên 96,34%).
+
+### E. Chấm điểm dự đoán (ghi trước khi có kết quả)
+| Dự đoán | Thực tế | Kết quả |
+| :--- | :--- | :---: |
+| base test ~93,5–95% | 96,34% | ✗ (thấp quá) |
+| PMI hơn base +0,1–0,6 | +0,26 | ✓ |
+| MBR hơn Viterbi +0,05–0,15 | +0,01 / +0,00 | ~ (đúng chiều "micro") |
+| Delta nhập nhằng > delta tổng | +0,29 vs +0,26 | ✓ |
+| Exact paragraph 28–40% | 40,3% / 41,6% | ✓ (sát mép trên) |
+| Partial 60% không dấu ~94–95,5% | 96,61% / 96,88% | ✗ (thấp quá) |
+| λ cuối ~1,0–1,3 | 1,0965 | ✓ |
+| Best checkpoint = ep4; nan=0 | đúng | ✓ |
+| Two-pass phẳng (±0,15) | phẳng tuyệt đối 0,00 | ✓ |

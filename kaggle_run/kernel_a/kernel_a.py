@@ -417,7 +417,13 @@ def main():
         pmi_table.attach_vocab(inv.vocab)
         pmi_table.to(device)
         lam = torch.tensor(0.5, device=device, requires_grad=True)
+        # inv.cand_ids is a plain CPU tensor (not a registered buffer, so
+        # model.to(device) does not move it); PMI lookup indexes it with CUDA
+        # top_idx, so keep a device-resident copy for the whole run.
+        cand_ids_dev = inv.cand_ids.to(device)
         print(f"[pmi] table built in {time.perf_counter()-t0:.0f}s: {pmi_table.stats}", flush=True)
+    else:
+        cand_ids_dev = inv.cand_ids
 
     # --- optimizer (same grouping as A/B) ---
     lengths = train_enc.seg_lens
@@ -451,7 +457,7 @@ def main():
         from vidicrf_v2.pmi import pmi_bigram_addend
 
         return pmi_bigram_addend(
-            pmi_table, out["bigram"], base_ids, out["top_idx"], inv.cand_ids, lam
+            pmi_table, out["bigram"], base_ids, out["top_idx"], cand_ids_dev, lam
         )
 
     @torch.no_grad()
@@ -544,7 +550,7 @@ def main():
     # ---------------------------------------------------------------------------
     model.build_inference_cache()
 
-    def forward_source(source):
+    def forward_source(source, use_pmi=True):
         matches = list(TOK.finditer(source))
         n = len(matches)
         raw = [m.group() for m in matches]
@@ -568,7 +574,7 @@ def main():
         lx = torch.tensor([lex], device=device)
         out = model(b_t, ln, c_t, lg, rg, sch.unsqueeze(0), sph.unsqueeze(0),
                     has_input_diac=hd_t, surface_lex=lx)
-        if pmi_table is not None:
+        if pmi_table is not None and use_pmi:
             out["bigram"] = out["bigram"] + pmi_addend(out, b_t)
         return raw, b_t, out
 
@@ -586,12 +592,12 @@ def main():
             words.append(restore_case(w, t) if len(w) == len(t) else w)
         return replace_spans(source, matches, words)
 
-    def predict_any(source, mode="viterbi", tau=None):
+    def predict_any(source, mode="viterbi", tau=None, use_pmi=True):
         matches = list(TOK.finditer(source))
         n = len(matches)
         if n == 0:
             return source
-        raw, b_t, out = forward_source(source)
+        raw, b_t, out = forward_source(source, use_pmi=use_pmi)
         if tau is not None:
             # Two-pass anchored decoding on the SAME lattice:
             # pass 1 = FB-MBR marginals; anchor tokens with marginal prob >= tau.
@@ -624,11 +630,12 @@ def main():
 
     restorer = FastRestorerV2(model, inv, device=device, use_cache=True)
 
-    # Sanity: inline path must reproduce restorer outputs exactly (base decoding).
+    # Sanity: inline path must reproduce restorer outputs exactly (base decoding,
+    # no PMI — restorer has no PMI hook, so compare the plain inline decode).
     n_check = min(20, len(test_pairs))
     for s, _ in test_pairs[:n_check]:
         a = restorer.predict(s, decode_mode="viterbi")[0]
-        b = predict_any(s, "viterbi")
+        b = predict_any(s, "viterbi", use_pmi=False)
         assert a == b, f"inline/restorer mismatch:\n{a}\n{b}"
     print(f"[eval] inline/restorer parity OK on {n_check} paragraphs", flush=True)
 

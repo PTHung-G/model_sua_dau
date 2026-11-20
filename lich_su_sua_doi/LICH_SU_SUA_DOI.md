@@ -133,3 +133,36 @@ Nguồn số liệu đầy đủ lưu tại [ket_qua_benchmark_v1_vs_v2.json](fi
 # 2. Chạy bộ thực nghiệm đối chứng A/B (cần GPU/CPU và kết nối mạng tải parquet lần đầu)
 .\.venv\Scripts\python.exe -X utf8 -m vidicrf_v2.run_ab_experiment
 ```
+
+---
+
+## 7. Phụ lục V3 — Tối ưu CPU + PMI sketch + Kernel Kaggle quy mô lớn (20/11/2026)
+
+> **Nhãn trung thực:** toàn bộ mục này là **benchmark thăm dò của riêng tôi (v3)**, ngoài phạm vi đề xuất D3 (D3 ràng buộc "không kiến trúc mới, không train lại" — v2/v3 vi phạm cả hai). Không số nào dưới đây là kết quả của môn học. Độ trễ đo trên **Linux/CPU 2 threads, torch 2.11** — **không so sánh 1:1** với đo Windows/torch khác.
+
+### A. Tối ưu CPU không cần train lại (`vidicrf_v2/fast_inference.py`)
+- `WordCache`: memo 7-dặc-trưng bề mặt từng từ + tensor char/phono.
+- `scripted_viterbi`: bản TorchScript của `trigram_viterbi` (biên dịch qua `__wrapped__` do wrapper `@torch.no_grad()` làm `torch.jit.script` lỗi trên torch 2.11), có fallback eager.
+- `CSRInventory`: `cand_ids` dày đặc → CSR (indptr + vid int32 phẳng).
+- `FastRestorerV2Opt`: subclass `FastRestorerV2` + memo toàn-câu; **ràng buộc tương đương đầu-ra 1:1 với bản gốc, khóa bằng test** (13 test mới + 24 test hồi quy đều xanh).
+- **Sửa kê khai bộ nhớ** (lỗi bỏ sót cache suy luận trong Exp A): `runtime_total = params + buffers + inference_cache`:
+
+| Đại lượng | Exp A báo cáo | Đo lại đầy đủ (Linux) |
+| :--- | :---: | :---: |
+| Checkpoint (params + buffers) | `61,14 MB` | `61,14 MB` |
+| Inference cache (148.008 từ × 128 × f32) | *(bị bỏ sót)* | `72,27 MB` |
+| **Tổng bộ nhớ runtime** | `61,14 MB` | **`133,41 MB`** (≈ 1,95× so với v1 259,18 MB, không phải 4,24×) |
+| CSR `cand_ids` (13,79 MB → 1,45 MB, tỉ lệ lấp đầy 4,29%) | — | nén `9,48×` |
+
+- **Phân rã độ trễ** (câu mẫu 24 từ, Linux): baseline p50 `11,02 ms` — trong đó `model_forward` chiếm `9,37 ms` (~82%), tokenizer/tổng hợp tensor chỉ ~0,4 ms. **Khác biệt với đo Windows của tôi trước đó (40,3 ms tổng, ~60% ngoài model) là đặc thù nền tảng**; số 24 ms overhead chưa được xác nhận trên môi trường này.
+- Latency trên câu mới mỗi lần (không dính memo toàn-câu) và chi tiết đầy đủ: `lich_su_sua_doi/ket_qua_toi_uu_cpu_v3.json` (đo lại sau khi bổ sung thước đo fresh-input).
+
+### B. PMI bigram train-only (`vidicrf_v2/pmi.py`)
+- `PMITable`: đếm cặp trên **chỉ partition train**, lọc `min_pair_count=3`, clip `[−4, 8]`, tra cứu `searchsorted` trên key int64 đã sắp; bơm `bigram += λ · PMI(cặp ứng viên kề)` với λ học được (khởi tạo 0.5).
+- Có bước smoke huấn luyện 1 bước thật: loss hữu hạn, `λ.grad ≠ 0`.
+- Ablation đang chạy trên Kaggle (kernel B), so với kernel A (cùng protocol, không PMI).
+
+### C. Kernel Kaggle quy mô lớn (`kaggle_run/`)
+- 2 kernel riêng tư (T4): `vidicrf-v3-scale-200k-base` (không PMI) và `vidicrf-v3-scale-200k-pmi`; protocol **giữ nguyên** Exp B (seed 42, 4 epochs, bs 32, lr 0.0020, dedup ưu tiên eval, RAW test) chỉ tăng train 12.000 → 200.000 đoạn; revision HF khóa cứng `b04c8d1c…`; AMP FP16 chỉ quanh encoder, loss CRF/CE luôn FP32; decode test: Viterbi / FB-MBR / **two-pass anchored** (τ ∈ {0.8, 0.9, 0.95}) / partial-diac 40%.
+- Dataset nguồn `tunhngphm/vidicrf-v3-src` (7 module, zip); kernel tự lắp layout package từ file phẳng.
+- Kết quả sẽ nằm ở `/kaggle/working/results_v3.json` của từng kernel (kiểm tra thủ công trên Kaggle).

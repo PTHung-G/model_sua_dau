@@ -5,4 +5,6 @@ scikit-learn
 scipy
 pandas
 tqdm
+pyarrow          # reading wikimedia/wikipedia parquet shards (v3 scale-up kernels)
+requests         # HF dataset listing/download in run_ab_experiment-style splits
 # Historical research scripts may require additional packages.

@@ -1,0 +1,59 @@
+{
+  "device": "cpu",
+  "torch": "2.11.0+cpu",
+  "python": "3.12.3",
+  "platform": "Linux-6.14.0-37-generic-x86_64-with-glibc2.39",
+  "num_threads": 2,
+  "weights": "untrained (latency/memory profiling only)",
+  "equivalence_ok": true,
+  "memory_accounting": {
+    "param_mb": 18.42,
+    "buffer_mb": 42.72,
+    "checkpoint_total_mb": 61.14,
+    "inference_cache_mb": 72.27,
+    "runtime_total_mb": 133.41,
+    "exp_a_reported_buffer_mb": 42.72,
+    "exp_a_reported_total_mb": 61.14,
+    "csr_stats": {
+      "dense_bytes": 13786112,
+      "csr_bytes_int32_vids": 1453672,
+      "avg_candidates_per_base": 1.374,
+      "dense_utilization_pct": 4.29,
+      "compression_ratio": 9.48
+    },
+    "cache_build_seconds": 7.8,
+    "inventory_build_seconds": 38.9
+  },
+  "breakdown_baseline": {
+    "tokenize_features_ms": 0.18,
+    "char_encode_ms": 0.33,
+    "tensor_assembly_ms": 0.1,
+    "model_forward_ms": 12.89,
+    "viterbi_decode_ms": 1.99,
+    "word_reassembly_ms": 0.34,
+    "total_ms": 15.83
+  },
+  "breakdown_opt": {
+    "tokenize_features_ms": 0.16,
+    "char_encode_ms": 0.11,
+    "tensor_assembly_ms": 0.11,
+    "model_forward_ms": 14.13,
+    "viterbi_decode_ms": 2.44,
+    "word_reassembly_ms": 0.41,
+    "total_ms": 17.36
+  },
+  "latency_ms": {
+    "baseline_viterbi_p50": 17.91,
+    "baseline_viterbi_p95": 20.1,
+    "opt_viterbi_p50": 0.01,
+    "opt_viterbi_p95": 0.01,
+    "baseline_mbr_p50": 13.66,
+    "opt_mbr_p50": 0.0,
+    "long176w_baseline": 213.18,
+    "long176w_opt": 0.0,
+    "opt_novel_sentence_first_call": 14.08,
+    "opt_novel_sentence_p50": 0.0,
+    "fresh_input_baseline_avg": 14.82,
+    "fresh_input_opt_avg": 14.28
+  }
+}

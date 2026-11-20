@@ -8,11 +8,14 @@ from .orthography import (
     parse_syllable_phonology,
     compact_inventory,
 )
-from .v1_mbr_decoder import (
-    forward_backward_marginals,
-    mbr_decode,
-    constrained_viterbi,
-)
+try:  # optional module; not needed by the v2/v3 core pipeline
+    from .v1_mbr_decoder import (
+        forward_backward_marginals,
+        mbr_decode,
+        constrained_viterbi,
+    )
+except ImportError:  # pragma: no cover
+    pass
 from .model import (
     ViDiCRFv2,
     trigram_log_partition,

@@ -1,0 +1,14 @@
+{
+  "id": "tunhngphm/vidicrf-v3-scale-200k-pmi",
+  "title": "ViDiCRF v3 scale 200k PMI",
+  "code_file": "kernel_b.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["tunhngphm/vidicrf-v3-src"],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}

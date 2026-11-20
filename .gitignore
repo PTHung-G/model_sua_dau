@@ -11,6 +11,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 # Models, tensors and raw datasets (transfer separately)
+ab_exp_work/
 *.pt
 *.pth
 *.ckpt

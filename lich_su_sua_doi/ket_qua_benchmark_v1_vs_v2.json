@@ -1,0 +1,133 @@
+{
+  "device": "cuda",
+  "gpu_name": "NVIDIA GeForce RTX 3060 Laptop GPU",
+  "dataset": {
+    "source": "wikimedia/wikipedia 20231101.vi",
+    "revision": "b04c8d1ceb2f5cd4588862100d08de323dccfbaa",
+    "train_rows": 12000,
+    "validation_rows": 1000,
+    "test_rows": 1000,
+    "test_tokens": 71173,
+    "ambiguous_bases_in_train": 963
+  },
+  "experiment_a_daudemo_1_38m_inventory": {
+    "v1": {
+      "bases": 1379599,
+      "vocab": 1431311,
+      "trainable_params": 1308249,
+      "param_mb": 4.99,
+      "buffer_mb": 254.19,
+      "total_model_mb": 259.18,
+      "oov_realloc_mb": 254.19,
+      "cpu_p50_ms": 55.75,
+      "cpu_p95_ms": 106.2,
+      "cpu_oov_p50_ms": 85.64
+    },
+    "v2": {
+      "bases": 107703,
+      "vocab": 148008,
+      "compaction_stats": {
+        "original_bases": 1379599,
+        "retained_bases": 107703,
+        "retained_vocab": 148008,
+        "dropped_identity_singletons": 1246531,
+        "reduction_pct": 92.19316627512777
+      },
+      "trainable_params": 4829306,
+      "param_mb": 18.42,
+      "buffer_mb": 42.72,
+      "total_model_mb": 61.14,
+      "oov_realloc_mb": 0.0,
+      "cpu_p50_ms": 40.26,
+      "cpu_p95_ms": 64.48,
+      "cpu_oov_p50_ms": 38.32
+    }
+  },
+  "experiment_b_end_to_end_ab": {
+    "COPY": {
+      "token_accuracy": 19.31,
+      "ambiguous_token_accuracy": 12.61,
+      "ambiguous_tokens": 60925,
+      "sentence_exact": 0.0,
+      "ortho_norm_token_accuracy": 19.31,
+      "ortho_norm_sentence_exact": 0.0,
+      "punctuation_preserved_rows": 1000
+    },
+    "Train-frequency": {
+      "token_accuracy": 74.08,
+      "ambiguous_token_accuracy": 70.02,
+      "ambiguous_tokens": 60925,
+      "sentence_exact": 2.8,
+      "ortho_norm_token_accuracy": 74.13,
+      "ortho_norm_sentence_exact": 2.8,
+      "punctuation_preserved_rows": 1000
+    },
+    "ViDiCRF_v1_Viterbi": {
+      "trainable_params": 977849,
+      "checkpoint_mb": 6.46,
+      "train_seconds": 284.9,
+      "best_val_acc_pct": 81.74,
+      "token_accuracy": 86.1,
+      "ambiguous_token_accuracy": 84.05,
+      "ambiguous_tokens": 60925,
+      "sentence_exact": 12.5,
+      "ortho_norm_token_accuracy": 86.17,
+      "ortho_norm_sentence_exact": 12.5,
+      "punctuation_preserved_rows": 1000,
+      "partial_diacritic_40pct": {
+        "unaccented_60pct_token_accuracy": 86.53,
+        "accented_40pct_preserved_rate": 85.31,
+        "accented_40pct_broken_tokens": 3393
+      }
+    },
+    "ViDiCRF_v1_FB_MBR_ZeroRetrain": {
+      "note": "Zero-retrain upgrade: identical v1 weights, Forward-Backward MBR decoding",
+      "token_accuracy": 86.15,
+      "ambiguous_token_accuracy": 84.11,
+      "ambiguous_tokens": 60925,
+      "sentence_exact": 12.5,
+      "ortho_norm_token_accuracy": 86.22,
+      "ortho_norm_sentence_exact": 12.5,
+      "punctuation_preserved_rows": 1000
+    },
+    "ViDiCRF_v2_Viterbi": {
+      "trainable_params": 1804314,
+      "checkpoint_mb": 8.02,
+      "train_seconds": 338.3,
+      "best_val_acc_pct": 88.23,
+      "inventory_stats": {
+        "original_bases": 14164,
+        "retained_bases": 2393,
+        "retained_vocab": 5215,
+        "dropped_identity_singletons": 11771,
+        "reduction_pct": 83.10505506918949,
+        "punct_vocab": 693,
+        "nchar": 123,
+        "n_lex_vocab": 4073,
+        "kmax": 32,
+        "chw": 20
+      },
+      "token_accuracy": 88.65,
+      "ambiguous_token_accuracy": 87.04,
+      "ambiguous_tokens": 60925,
+      "sentence_exact": 17.8,
+      "ortho_norm_token_accuracy": 88.73,
+      "ortho_norm_sentence_exact": 17.8,
+      "punctuation_preserved_rows": 1000,
+      "partial_diacritic_40pct": {
+        "unaccented_60pct_token_accuracy": 89.32,
+        "accented_40pct_preserved_rate": 100.0,
+        "accented_40pct_broken_tokens": 0
+      }
+    },
+    "ViDiCRF_v2_FB_MBR": {
+      "token_accuracy": 88.72,
+      "ambiguous_token_accuracy": 87.13,
+      "ambiguous_tokens": 60925,
+      "sentence_exact": 17.2,
+      "ortho_norm_token_accuracy": 88.8,
+      "ortho_norm_sentence_exact": 17.2,
+      "punctuation_preserved_rows": 1000
+    }
+  }
+}

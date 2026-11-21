@@ -163,29 +163,52 @@ Nguồn số liệu đầy đủ lưu tại [ket_qua_benchmark_v1_vs_v2.json](fi
 - Có bước smoke huấn luyện 1 bước thật: loss hữu hạn, `λ.grad ≠ 0`.
 - Ablation đang chạy trên Kaggle (kernel B), so với kernel A (cùng protocol, không PMI).
 
-### C. Kernel Kaggle quy mô lớn (`kaggle_run/`)
-- 2 kernel riêng tư (T4): `vidicrf-v3-scale-200k-base` (không PMI) và `vidicrf-v3-scale-200k-pmi`; protocol **giữ nguyên** Exp B (seed 42, 4 epochs, bs 32, lr 0.0020, dedup ưu tiên eval, RAW test) chỉ tăng train 12.000 → 200.000 đoạn; revision HF khóa cứng `b04c8d1c…`; AMP FP16 chỉ quanh encoder, loss CRF/CE luôn FP32; decode test: Viterbi / FB-MBR / **two-pass anchored** (τ ∈ {0.8, 0.9, 0.95}) / partial-diac 40%.
+### C. Kernel Kaggle (`kaggle_run/`) — 4 kernel, lưới 2×2
+- 4 kernel riêng tư T4: `-200k-base`, `-200k-pmi`, `-12k-base`, `-12k-pmi`. Protocol **giữ nguyên** Exp B (seed 42, 4 epochs, bs 32, lr 0.0020, dedup ưu tiên eval, RAW test), **chỉ đổi `N_TRAIN`** (12.000 vs 200.000) và `VARIANT` (base vs pmi); revision HF khóa cứng `b04c8d1c…`; AMP chỉ quanh encoder, loss CRF/CE luôn FP32; decode test: Viterbi / FB-MBR / **two-pass anchored** (τ ∈ {0.8, 0.9, 0.95}) / partial-diac 40%.
 - Dataset nguồn `tunhngphm/vidicrf-v3-src` (7 module, zip); kernel tự lắp layout package từ file phẳng.
-- Kết quả lưu tại `lich_su_sua_doi/kaggle_v3/results_{base,pmi}_200k.json`.
+- Kết quả: `lich_su_sua_doi/kaggle_v3/results_{base,pmi}_{12k,200k}.json`.
 
-### D. Kết quả chạy 200k trên Kaggle T4 (20/11/2026) — benchmark thăm dò, ngoài D3
-- Test set **trùng khớp từng token** với Exp B 12k (71.173 tokens; salt hash) → số so sánh trực tiếp được. Train ~194.495/200.000 đoạn (5.505 bị skip), 217.938 segments; inventory 25.303 dạng từ; AMP thực tế dùng **BF16** (torch 2.11 báo bf16 khả dụng trên T4 qua emulation; GradScaler tự tắt), CRF/CE luôn FP32; `nan_skips = 0` toàn bộ; ~5.880s/epoch, tổng ~5h51m train + eval.
+### D. Lưới kết quả 2×2 trên Kaggle T4 (20–21/11/2026) — benchmark thăm dò, ngoài D3
+- Cả 4 lần chạy dùng **cùng một test set** 71.173 token (salt hash + pinned revision) → so sánh trực tiếp được, chỉ khác lượng train và việc bật/tắt PMI.
+- 200k: train 194.495/200.000 đoạn (5.505 skip), 217.938 segments, inventory 25.303 dạng từ, ~5.880s/epoch, tổng ~5h51m train. 12k: ~13k segments, ~265–288s/epoch, ~18–19 phút train.
+- AMP thực tế dùng **BF16** (torch 2.11 báo bf16 khả dụng trên T4 qua emulation; GradScaler tự tắt), CRF/CE luôn FP32; `nan_skips = 0` ở **cả 4 lần chạy**.
+- **Kiểm tra độ trung thực**: bản tái lập 12k-base cho 88,72% so với 88,65% của Exp B gốc đã commit → lệch **+0,07 điểm**, tức vòng train trong kernel tái tạo đúng semantics của `run_ab_experiment.py` (chênh lệch nằm trong nhiễu do AMP). Đây là cơ sở để tin số 200k không bị méo bởi AMP.
 
-| Hệ thống (cùng test set 71.173 tokens) | Val Acc | RAW Token | Nhập nhằng | Exact Paragraph | Ortho-Norm |
+| Hệ thống (cùng test set 71.173 token) | Val | **RAW Token** | Nhập nhằng | Exact Paragraph | Ortho-Norm |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| `ViDiCRF v2` 12k (Viterbi) | 88,23% | 88,65% | 87,04% | 17,80% | 88,73% |
-| `ViDiCRF v2` 12k (FB-MBR) | — | 88,72% | 87,13% | 17,20% | 88,80% |
-| **base 200k (Viterbi)** | 94,65% | **96,34%** | 96,09% | **40,30%** | 96,44% |
-| **base 200k (FB-MBR)** | — | 96,35% | 96,11% | 40,00% | 96,46% |
-| **PMI 200k (Viterbi)** | **94,87%** | **96,60%** | **96,38%** | **41,60%** | 96,70% |
-| **PMI 200k (FB-MBR)** | — | 96,60% | 96,38% | 41,40% | 96,70% |
+| 12k base (Viterbi) | 88,14% | 88,72% | 87,13% | 17,60% | 88,80% |
+| 12k base (FB-MBR) | — | 88,84% | 87,26% | 17,50% | 88,92% |
+| **12k PMI (Viterbi)** | **90,76%** | **91,29%** | **90,13%** | **22,00%** | **91,37%** |
+| 12k PMI (FB-MBR) | — | 91,26% | 90,09% | 21,40% | 91,34% |
+| 200k base (Viterbi) | 94,65% | 96,34% | 96,09% | 40,30% | 96,44% |
+| 200k base (FB-MBR) | — | 96,35% | 96,11% | 40,00% | 96,46% |
+| **200k PMI (Viterbi)** | **94,87%** | **96,60%** | **96,38%** | **41,60%** | **96,70%** |
+| 200k PMI (FB-MBR) | — | 96,60% | 96,38% | 41,40% | 96,70% |
 
-- **PMI vs base** (ablation đối chứng): +0,26 token, +0,29 nhập nhằng, +1,30 điểm exact paragraph (+3,2% tương đối); λ học được hội tụ ~1,10 (khởi tạo 0,5, đỉnh 1,21 ở ep1 rồi hạ dần); chi phí thời gian ~0 (5.264s vs 5.267s/epoch). Val gap PMI–base thu hẹp dần: +1,96 → +0,80 → +0,41 → +0,22 — đúng hình thái "sketch đi trước, model nội hóa dần".
-- **Two-pass anchored hoàn toàn phẳng**: 96,34/96,60 tại cả τ ∈ {0.8, 0.9, 0.95} — không đổi một prediction nào so với Viterbi thuần. Kết quả tiêu cực hữu ích: cơ chế anchor-cứng trên cùng lattice gần như chắc chắn trùng với Viterbi khi MBR và Viterbi bất đồng rất ít → tiền đề cho "2-step BP / candidate cross-attention" đầy đủ ở quy mô này yếu.
-- **Lưu ý protocol partial-diac**: eval này decode **tự do không hard-copy** từ có dấu sẵn (khác A/B 12k nơi restorer khóa cứng → 100% bảo toàn). Kết quả free-decode: base bảo toàn 99,66% (78 từ hỏng), PMI 99,76% (55 từ hỏng); 60% không dấu: 96,61% / 96,88%. **Chỉ so sánh PMI vs base với nhau được**, không so trực tiếp cột 89,32%/100% của bảng 12k.
-- Scale-up 12k → 200k (16,7×): +7,69 điểm token (88,65 → 96,34), nhập nhằng +9,05, exact paragraph ×2,26 — lợi ích tuyến tính hơn dự đoán ban đầu (dự đoán trước khi chạy của tôi là ~93,5–95%, thực tế vượt lên 96,34%).
+### E. Kết luận chính: PMI là công cụ cho chế độ **ít dữ liệu**, không phải cho quy mô lớn
+- **Lợi ích PMI co lại ~10 lần khi tăng dữ liệu**:
 
-### E. Chấm điểm dự đoán (ghi trước khi có kết quả)
+| Chỉ số | 12k (PMI − base) | 200k (PMI − base) | Tỉ lệ |
+| :--- | :---: | :---: | :---: |
+| RAW token | **+2,57** | +0,26 | 9,9× |
+| Nhập nhằng | **+3,00** | +0,29 | 10,3× |
+| Exact paragraph | **+4,40** (+25,0% tương đối) | +1,30 (+3,2%) | 3,4× |
+| Ortho-Norm | **+2,57** | +0,26 | 9,9× |
+| Val acc | **+2,62** | +0,22 | 11,9× |
+
+- Nhìn theo **giảm lỗi tương đối** (thang đo đúng cho ablation): 12k giảm **22,8% lỗi** token (11,28% → 8,71%); 200k chỉ giảm **7,1%** (3,66% → 3,40%). Ở 200k vẫn có lãi, nhưng phần lớn thống kê bigram đã được model neural tự nội hóa từ 194k đoạn → sketch ngoài chỉ còn phần dư nhỏ.
+- **λ học được KHÔNG phải chỉ báo độ hữu ích**: hội tụ về **1,0990 ở 12k** và **1,0965 ở 200k** — gần như trùng nhau, dù lợi ích chênh 10 lần. Nghĩa là model luôn "muốn" prior này ở trọng số ~1,1; khác biệt nằm ở **lượng thông tin dư** trong tín hiệu, không nằm ở scalar. (Đính chính lại cách đọc λ ở mục D bản trước: λ cao không chứng minh PMI có ích.)
+- **Quy đổi tương đương dữ liệu**: nội suy log-tuyến tính qua 2 điểm (12k: 88,72%; 200k: 96,34% — độ dốc 2,71 điểm/ln) cho thấy +2,57 điểm của PMI ở 12k tương đương **≲2,6× dữ liệu**. Đây là **cận trên**, vì đường cong học là lõm (lợi ích giảm dần) nên độ dốc cục bộ tại 12k cao hơn độ dốc trung bình → quy đổi thật nhỏ hơn. Không thể thay dữ liệu bằng PMI: 12k+PMI (91,29%) vẫn kém 200k base (96,34%) **5,05 điểm**.
+- Bảng PMI ở 12k chỉ có 36.014 cặp (phủ 2.847/25.303 từ) so với 371.018 cặp ở 200k (phủ 11.866 từ) — chính vì thế mà ở 12k sketch vừa *hữu ích hơn* (bù dữ liệu thiếu) vừa *mỏng hơn* (ít cặp học được).
+- **Two-pass anchored phẳng tuyệt đối ở cả 4 lần chạy**: 88,72 / 91,29 / 96,34 / 96,60 giống hệt nhau tại τ ∈ {0.8, 0.9, 0.95} — không đổi một prediction nào. Kết quả tiêu cực rất chắc (4 cấu hình × 3 ngưỡng = 12 phép thử): anchor-cứng trên cùng lattice không tạo ra thông tin mới, vì MBR và Viterbi gần như luôn đồng ý → **tiền đề cho "2-step BP / candidate cross-attention" đầy đủ yếu, nên hạ ưu tiên**.
+- **Bảo toàn dấu người dùng tăng mạnh theo dữ liệu** (free-decode, không hard-copy): 12k base bảo toàn 88,22% (2.720 từ hỏng) → 200k base **99,66%** (78 từ hỏng). Với ít dữ liệu model "sửa quá tay" cả những từ người dùng đã gõ đúng dấu. PMI giảm số từ hỏng **~24–30% ở cả hai mức** (2.720 → 2.081; 78 → 55) — hiệu ứng ổn định và nhất quán nhất của PMI.
+- Chi phí thời gian PMI: ~0% ở 200k (5.264 vs 5.265s/epoch), +8,7% ở 12k (288 vs 265s/epoch) — chênh lệch nhỏ, nằm trong nhiễu đo/dao động xung nhịp GPU, không phải xu hướng thật.
+
+### F. Lưu ý protocol & chấm điểm dự đoán
+- **Partial-diac ở 4 lần chạy Kaggle dùng protocol khác A/B 12k**: decode **tự do**, không hard-copy từ có dấu sẵn như restorer (A/B khóa cứng → 100% bảo toàn). Vì vậy **chỉ so sánh chéo trong lưới 2×2**, không so với cột 89,32%/100% của bảng Exp B.
+- Phần trăm bảo toàn dấu trong lưới: 12k 88,22% → 90,99% (PMI); 200k 99,66% → 99,76% (PMI). Accuracy 60%-không-dấu: 89,20 → 91,67 (12k); 96,61 → 96,88 (200k).
+
+**Chấm điểm dự đoán 200k** (ghi trước khi chạy):
 | Dự đoán | Thực tế | Kết quả |
 | :--- | :--- | :---: |
 | base test ~93,5–95% | 96,34% | ✗ (thấp quá) |
@@ -197,3 +220,10 @@ Nguồn số liệu đầy đủ lưu tại [ket_qua_benchmark_v1_vs_v2.json](fi
 | λ cuối ~1,0–1,3 | 1,0965 | ✓ |
 | Best checkpoint = ep4; nan=0 | đúng | ✓ |
 | Two-pass phẳng (±0,15) | phẳng tuyệt đối 0,00 | ✓ |
+
+**Chấm điểm dự đoán 12k** (ghi trước khi chạy):
+| Dự đoán | Thực tế | Kết quả |
+| :--- | :--- | :---: |
+| Gap PMI ở 12k **lớn hơn** +0,26 của 200k | +2,57 (≈10×) | ✓ |
+| Bản tái lập 12k-base ≈ 88,65% đã commit | 88,72% (lệch +0,07) | ✓ |
+| Two-pass vẫn phẳng | phẳng tuyệt đối 0,00 | ✓ |

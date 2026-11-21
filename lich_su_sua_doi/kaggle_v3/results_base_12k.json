@@ -1,0 +1,90 @@
+{
+  "variant": "base",
+  "device": "cuda",
+  "gpu": "Tesla T4",
+  "torch": "2.11.0+cu130",
+  "smoke": false,
+  "data": {
+    "source": "wikimedia/wikipedia 20231101.vi",
+    "revision": "b04c8d1ceb2f5cd4588862100d08de323dccfbaa",
+    "train_rows": 12000,
+    "validation_rows": 1000,
+    "test_rows": 1000,
+    "test_tokens": 71173,
+    "ambiguous_bases_in_train": 963
+  },
+  "inventory_stats": {
+    "original_bases": 14164,
+    "retained_bases": 2393,
+    "retained_vocab": 5215,
+    "dropped_identity_singletons": 11771,
+    "reduction_pct": 83.10505506918949,
+    "punct_vocab": 693,
+    "nchar": 123,
+    "n_lex_vocab": 4073,
+    "kmax": 32,
+    "chw": 20
+  },
+  "pmi_stats": null,
+  "lambda_pmi_final": null,
+  "train_seconds": 1060.6,
+  "epochs": 4,
+  "best_val_acc_pct": 88.14,
+  "nan_skips": 0,
+  "amp": {
+    "enabled": true,
+    "dtype": "torch.bfloat16"
+  },
+  "test_viterbi": {
+    "token_accuracy": 88.72,
+    "ambiguous_token_accuracy": 87.13,
+    "ambiguous_tokens": 60925,
+    "sentence_exact": 17.6,
+    "ortho_norm_token_accuracy": 88.8,
+    "ortho_norm_sentence_exact": 17.6,
+    "punctuation_preserved_rows": 1000
+  },
+  "test_mbr": {
+    "token_accuracy": 88.84,
+    "ambiguous_token_accuracy": 87.26,
+    "ambiguous_tokens": 60925,
+    "sentence_exact": 17.5,
+    "ortho_norm_token_accuracy": 88.92,
+    "ortho_norm_sentence_exact": 17.5,
+    "punctuation_preserved_rows": 1000
+  },
+  "test_two_pass": {
+    "0.8": {
+      "token_accuracy": 88.72,
+      "ambiguous_token_accuracy": 87.13,
+      "ambiguous_tokens": 60925,
+      "sentence_exact": 17.6,
+      "ortho_norm_token_accuracy": 88.8,
+      "ortho_norm_sentence_exact": 17.6,
+      "punctuation_preserved_rows": 1000
+    },
+    "0.9": {
+      "token_accuracy": 88.72,
+      "ambiguous_token_accuracy": 87.13,
+      "ambiguous_tokens": 60925,
+      "sentence_exact": 17.6,
+      "ortho_norm_token_accuracy": 88.8,
+      "ortho_norm_sentence_exact": 17.6,
+      "punctuation_preserved_rows": 1000
+    },
+    "0.95": {
+      "token_accuracy": 88.72,
+      "ambiguous_token_accuracy": 87.13,
+      "ambiguous_tokens": 60925,
+      "sentence_exact": 17.6,
+      "ortho_norm_token_accuracy": 88.8,
+      "ortho_norm_sentence_exact": 17.6,
+      "punctuation_preserved_rows": 1000
+    }
+  },
+  "partial_diacritic_40pct": {
+    "unaccented_60pct_token_accuracy": 89.2,
+    "accented_40pct_preserved_rate": 88.22,
+    "accented_40pct_broken_tokens": 2720
+  }
+}

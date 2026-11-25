@@ -105,7 +105,7 @@ class PunctSylCRF(nn.Module):
             packed_h, batch_first=True, total_length=width)
         return h * valid.unsqueeze(-1)
 
-    def forward(self, base_ids, sent_len, input_features=None, gaps=None):
+    def forward(self, base_ids, sent_len, input_features=None, gaps=None, *, return_unary_features=False):
         """base_ids (B,L); gaps (B,L+1) punctuation-gap IDs from the input only."""
         B, L = base_ids.shape
         unique_base, inverse = torch.unique(base_ids, return_inverse=True)
@@ -144,6 +144,8 @@ class PunctSylCRF(nn.Module):
 
         m = torch.arange(L, device=base_ids.device).unsqueeze(0) < sent_len.unsqueeze(1)
         mask = valid & m.unsqueeze(-1)
+        if return_unary_features:
+            return emit, trans, mask, ctx, ce, cid
         return emit, trans, mask
 
 
